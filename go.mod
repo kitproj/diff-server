@@ -1,3 +1,3 @@
-module github.com/kitproj/diffs-cli
+module github.com/kitproj/diff-server
 
 go 1.24.4

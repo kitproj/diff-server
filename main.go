@@ -20,5 +20,8 @@ func main() {
 	http.HandleFunc("/", diffsHandler)
 
 	fmt.Printf("Starting server on http://localhost:%s\n", *port)
-	http.ListenAndServe(":"+*port, nil)
+	if err := http.ListenAndServe(":"+*port, nil); err != nil {
+		fmt.Fprintf(os.Stderr, "Server failed: %v\n", err)
+		os.Exit(1)
+	}
 }
