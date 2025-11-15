@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	port := flag.String("port", "8080", "Port to listen on")
+	port := flag.String("p", "3844", "Port to listen on")
 	workspaceDir := flag.String("C", ".", "Directory to scan for git repositories")
 	flag.Parse()
 
