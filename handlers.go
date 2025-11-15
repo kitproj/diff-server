@@ -62,6 +62,11 @@ func serveDiffsText(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/x-diff; charset=utf-8")
+	
+	// Flush headers immediately to prevent connection reset on MacOS
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
 
 	for _, repoPath := range repos {
 		relPath, _ := filepath.Rel(".", repoPath)
@@ -86,5 +91,10 @@ done
 		cmd.Stdout = writer
 		cmd.Stderr = writer
 		_ = cmd.Run()
+	}
+	
+	// Flush any remaining data to ensure complete response
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
 	}
 }
