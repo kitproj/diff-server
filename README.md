@@ -1,4 +1,4 @@
-# diffs-cli
+# diff-server
 
 A tiny Go program that shows git diffs in the current directory and all git repositories in subdirectories.
 
@@ -6,16 +6,16 @@ A tiny Go program that shows git diffs in the current directory and all git repo
 
 ```bash
 # Build
-go build -o diffs-cli .
+go build -o diff-server .
 
 # Run (default port 8080, current directory)
-./diffs-cli
+./diff-server
 
 # Run on custom port
-./diffs-cli -port 9000
+./diff-server -port 9000
 
 # Scan a different directory
-./diffs-cli -C /path/to/workspace
+./diff-server -C /path/to/workspace
 ```
 
 Then open http://localhost:8080 (or your custom port) in a browser to view the diffs.
