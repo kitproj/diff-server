@@ -252,3 +252,35 @@ func TestServeDiffsText_LargeDiffTruncation(t *testing.T) {
 		t.Error("expected some diff output")
 	}
 }
+
+func TestServeDiffsText_NonGitDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+	
+	// Create a non-git directory with a file
+	testFile := filepath.Join(tmpDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("test content\n"), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+	
+	oldDir, _ := os.Getwd()
+	defer os.Chdir(oldDir)
+	
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept", "text/x-diff")
+	
+	w := httptest.NewRecorder()
+	diffsHandler(w, req)
+	
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+	
+	// Should return empty response since there are no git repos
+	// This tests that the handler completes successfully even with no repos
+}
+
