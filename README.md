@@ -67,6 +67,8 @@ cd diff-server
 go build -o diff-server .
 ```
 
+![Screenshot](screenshot.png)
+
 ## Usage
 
 ### Starting the Server
