@@ -4,6 +4,8 @@ A lightweight Go web server that displays git diffs from the current directory a
 
 Like `jq`, it is a single tiny binary without dependencies, making it easy to install and use anywhere.
 
+![Screenshot](screenshot.png)
+
 ## Installation
 
 ### Supported Platforms
@@ -20,19 +22,19 @@ Download the binary for your platform from the [release page](https://github.com
 
 **For Linux (amd64):**
 ```bash
-sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.1/diff-server_v0.0.1_linux_amd64
+sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.2/diff-server_v0.0.2_linux_amd64
 sudo chmod +x /usr/local/bin/diff-server
 ```
 
 **For Linux (arm64):**
 ```bash
-sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.1/diff-server_v0.0.1_linux_arm64
+sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.2/diff-server_v0.0.2_linux_arm64
 sudo chmod +x /usr/local/bin/diff-server
 ```
 
 **For Linux (386):**
 ```bash
-sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.1/diff-server_v0.0.1_linux_386
+sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.2/diff-server_v0.0.2_linux_386
 sudo chmod +x /usr/local/bin/diff-server
 ```
 
@@ -40,13 +42,13 @@ sudo chmod +x /usr/local/bin/diff-server
 
 **For macOS (Apple Silicon/arm64):**
 ```bash
-sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.1/diff-server_v0.0.1_darwin_arm64
+sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.2/diff-server_v0.0.2_darwin_arm64
 sudo chmod +x /usr/local/bin/diff-server
 ```
 
 **For macOS (Intel/amd64):**
 ```bash
-sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.1/diff-server_v0.0.1_darwin_amd64
+sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.2/diff-server_v0.0.2_darwin_amd64
 sudo chmod +x /usr/local/bin/diff-server
 ```
 
@@ -66,8 +68,6 @@ git clone https://github.com/kitproj/diff-server.git
 cd diff-server
 go build -o diff-server .
 ```
-
-![Screenshot](screenshot.png)
 
 ## Usage
 
