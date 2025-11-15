@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Diffs</title>
+</head>
+<body>
+    <h1>Git Diffs</h1>
+    <pre id="diff">Loading diffs...</pre>
+    <script>
+        fetch('/', {
+            headers: {
+                'Accept': 'text/x-diff'
+            }
+        })
+        .then(response => response.text())
+        .then(data => {
+            document.getElementById('diff').textContent = data || 'No changes';
+        })
+        .catch(error => {
+            document.getElementById('diff').textContent = 'Error loading diffs: ' + error;
+        });
+    </script>
+</body>
+</html>
