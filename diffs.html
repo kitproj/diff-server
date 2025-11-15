@@ -1,25 +1,61 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <meta charset="UTF-8">
-    <title>Diffs</title>
-</head>
-<body>
-    <h1>Git Diffs</h1>
-    <pre id="diff">Loading diffs...</pre>
-    <script>
-        fetch('/', {
-            headers: {
-                'Accept': 'text/x-diff'
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Git Diffs</title>
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css"
+            integrity="sha512-0aPQyyeZrWj9sCA46UlmWgKOP0mUipLQ6OZXu8l4IcAmD2u31EPEy9VcIMvl7SoAaKe8bLXZhYoMaE/in+gcgA=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"
+        />
+        <link
+            rel="stylesheet"
+            type="text/css"
+            href="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/css/diff2html.min.css"
+            integrity="sha384-iBvSlI3tNrrSIy7s6mvLg+5B2Z/QXbR4L0Pzg1nRf8zkXrz5JF316MLm2igMIpi2"
+            crossorigin="anonymous"
+        />
+    </head>
+    <body>
+        <div id="message"></div>
+        <div id="diffs"></div>
+
+        <script
+            type="text/javascript"
+            src="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/js/diff2html-ui.min.js"
+            integrity="sha384-99bAn+VpNpavq3FarkwuSuDPDHMeakTiNqxxz3ezwdGUr414srIXY3YmXjaAkYne"
+            crossorigin="anonymous"
+        ></script>
+        <script>
+            const message = document.getElementById("message");
+            const diffs = document.getElementById("diffs");
+            let currentDiff = "";
+
+            async function fetchAndRender() {
+                try {
+                    const response = await fetch("/diffs", {
+                        headers: { Accept: "text/x-diff" },
+                    });
+                    const data = await response.text();
+
+                    if (data !== currentDiff) {
+                        currentDiff = data;
+                        await new Diff2HtmlUI(diffs, currentDiff).draw();
+                        message.innerHTML = "";
+                    }
+                } catch (error) {
+                    message.innerHTML =
+                        "<div>Error fetching diffs: " +
+                        error.message +
+                        "</div>";
+                }
             }
-        })
-        .then(response => response.text())
-        .then(data => {
-            document.getElementById('diff').textContent = data || 'No changes';
-        })
-        .catch(error => {
-            document.getElementById('diff').textContent = 'Error loading diffs: ' + error;
-        });
-    </script>
-</body>
+
+            fetchAndRender();
+            setInterval(fetchAndRender, 10000);
+        </script>
+    </body>
 </html>
