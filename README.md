@@ -19,3 +19,4 @@ go build -o diff-server .
 ```
 
 Then open http://localhost:8080 (or your custom port) in a browser to view the diffs.
+# This is a test change
