@@ -29,33 +29,57 @@ func serveDiffsHTML(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write(diffsHTML)
 }
 
+func findGitRepos(root string) ([]string, error) {
+	var repos []string
+	
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		
+		if info.IsDir() && info.Name() == ".git" {
+			repoPath := filepath.Dir(path)
+			repos = append(repos, repoPath)
+			return filepath.SkipDir
+		}
+		
+		return nil
+	})
+	
+	return repos, err
+}
+
 func serveDiffsText(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
 	writer := &maxSizeWriter{Writer: w, maxSize: 5 * 1024 * 1024}
 
-	entries, err := os.ReadDir(".")
+	repos, err := findGitRepos(".")
 	if err != nil {
-		http.Error(w, "Failed to read workspace directory: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to find git repositories: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/x-diff; charset=utf-8")
 
-	for _, entry := range entries {
-		repoPath := filepath.Join(".", entry.Name())
-		gitDir := filepath.Join(repoPath, ".git")
-		if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-			continue
+	for _, repoPath := range repos {
+		relPath, _ := filepath.Rel(".", repoPath)
+		if relPath == "." {
+			relPath = ""
 		}
-
-		repoName := entry.Name()
+		
+		repoName := relPath
+		if repoName == "" {
+			repoName = filepath.Base(repoPath)
+		}
 
 		cmd := exec.CommandContext(ctx, "bash", "-c", `
 git diff --src-prefix=a/`+repoName+`/ --dst-prefix=b/`+repoName+`/ HEAD
-git ls-files --others --exclude-standard | while read -r file; do
-  git diff --no-index --src-prefix=a/`+repoName+`/ --dst-prefix=b/`+repoName+`/ /dev/null "$file"
+git ls-files --others --exclude-standard | while IFS= read -r file; do
+  if [ -n "$file" ]; then
+    git diff --no-index --src-prefix=a/`+repoName+`/ --dst-prefix=b/`+repoName+`/ /dev/null "$file" 2>/dev/null || true
+  fi
 done
 		`)
 		cmd.Dir = repoPath
