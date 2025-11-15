@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	_ "embed"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -26,7 +27,9 @@ func diffsHandler(w http.ResponseWriter, r *http.Request) {
 
 func serveDiffsHTML(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(diffsHTML)
+	if _, err := w.Write(diffsHTML); err != nil {
+		log.Printf("Failed to write HTML response: %v", err)
+	}
 }
 
 func findGitRepos(root string) ([]string, error) {
@@ -64,7 +67,11 @@ func serveDiffsText(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/x-diff; charset=utf-8")
 
 	for _, repoPath := range repos {
-		relPath, _ := filepath.Rel(".", repoPath)
+		relPath, err := filepath.Rel(".", repoPath)
+		if err != nil {
+			log.Printf("Failed to get relative path for %s: %v", repoPath, err)
+			relPath = repoPath
+		}
 		if relPath == "." {
 			relPath = ""
 		}
@@ -85,6 +92,8 @@ done
 		cmd.Dir = repoPath
 		cmd.Stdout = writer
 		cmd.Stderr = writer
-		_ = cmd.Run()
+		if err := cmd.Run(); err != nil {
+			log.Printf("Git command failed for %s: %v", repoPath, err)
+		}
 	}
 }
