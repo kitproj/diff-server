@@ -2,6 +2,8 @@
 
 A tiny Go program that shows git diffs in the current directory and all git repositories in subdirectories.
 
+![Screenshot](screenshot.png)
+
 ## Usage
 
 ```bash
