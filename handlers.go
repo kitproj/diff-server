@@ -31,21 +31,21 @@ func serveDiffsHTML(w http.ResponseWriter, _ *http.Request) {
 
 func findGitRepos(root string) ([]string, error) {
 	var repos []string
-	
+
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
-		
+
 		if info.IsDir() && info.Name() == ".git" {
 			repoPath := filepath.Dir(path)
 			repos = append(repos, repoPath)
 			return filepath.SkipDir
 		}
-		
+
 		return nil
 	})
-	
+
 	return repos, err
 }
 
@@ -68,7 +68,7 @@ func serveDiffsText(w http.ResponseWriter, r *http.Request) {
 		if relPath == "." {
 			relPath = ""
 		}
-		
+
 		repoName := relPath
 		if repoName == "" {
 			repoName = filepath.Base(repoPath)
