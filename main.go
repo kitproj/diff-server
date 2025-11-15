@@ -1,83 +1,111 @@
 package main
 
 import (
+	"context"
+	_ "embed"
+	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
+//go:embed diffs.html
+var diffsHTML []byte
+
+var workspaceDir string
+
+type maxSizeWriter struct {
+	Writer  io.Writer
+	maxSize int
+	written int
+}
+
+func (w *maxSizeWriter) Write(p []byte) (n int, err error) {
+	if w.written+len(p) > w.maxSize {
+		remaining := w.maxSize - w.written
+		if remaining > 0 {
+			n, err = w.Writer.Write(p[:remaining])
+			w.written += n
+		}
+		return n, io.ErrShortWrite
+	}
+	n, err = w.Writer.Write(p)
+	w.written += n
+	return n, err
+}
+
 func main() {
-	port := "8080"
-	if len(os.Args) > 1 {
-		port = os.Args[1]
-	}
+	port := flag.String("port", "8080", "Port to listen on")
+	flag.StringVar(&workspaceDir, "C", "", "Directory to scan for git repositories")
+	flag.Parse()
 
-	http.HandleFunc("/", handleRoot)
-	
-	fmt.Printf("Starting server on http://localhost:%s\n", port)
-	http.ListenAndServe(":"+port, nil)
-}
-
-func handleRoot(w http.ResponseWriter, r *http.Request) {
-	cwd, _ := os.Getwd()
-	
-	repos := findGitRepos(cwd)
-	
-	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte("<html><body><h1>Git Diffs</h1>"))
-	
-	for _, repo := range repos {
-		w.Write([]byte(fmt.Sprintf("<h2>%s</h2>", repo)))
-		diff := getGitDiff(repo)
-		w.Write([]byte("<pre>"))
-		w.Write([]byte(diff))
-		w.Write([]byte("</pre>"))
-	}
-	
-	w.Write([]byte("</body></html>"))
-}
-
-func findGitRepos(root string) []string {
-	var repos []string
-	
-	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	if workspaceDir == "" {
+		var err error
+		workspaceDir, err = os.Getwd()
 		if err != nil {
-			return nil
+			fmt.Fprintf(os.Stderr, "Failed to get current directory: %v\n", err)
+			os.Exit(1)
 		}
-		
-		if info.IsDir() && info.Name() == ".git" {
-			repoPath := filepath.Dir(path)
-			repos = append(repos, repoPath)
-			return filepath.SkipDir
-		}
-		
-		return nil
-	})
-	
-	return repos
+	}
+
+	http.HandleFunc("/", diffsHandler)
+
+	fmt.Printf("Starting server on http://localhost:%s\n", *port)
+	http.ListenAndServe(":"+*port, nil)
 }
 
-func getGitDiff(repoPath string) string {
-	cmd := exec.Command("git", "diff")
-	cmd.Dir = repoPath
-	output, err := cmd.CombinedOutput()
-	
+func diffsHandler(w http.ResponseWriter, r *http.Request) {
+	accept := r.Header.Get("Accept")
+
+	if strings.Contains(accept, "text/x-diff") {
+		serveDiffsText(w, r)
+	} else {
+		serveDiffsHTML(w, r)
+	}
+}
+
+func serveDiffsHTML(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(diffsHTML)
+}
+
+func serveDiffsText(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	writer := &maxSizeWriter{Writer: w, maxSize: 5 * 1024 * 1024}
+
+	entries, err := os.ReadDir(workspaceDir)
 	if err != nil {
-		return fmt.Sprintf("Error getting diff: %s", err)
+		http.Error(w, "Failed to read workspace directory: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
-	
-	if len(output) == 0 {
-		cmd = exec.Command("git", "diff", "HEAD")
+
+	w.Header().Set("Content-Type", "text/x-diff; charset=utf-8")
+
+	for _, entry := range entries {
+		repoPath := filepath.Join(workspaceDir, entry.Name())
+		gitDir := filepath.Join(repoPath, ".git")
+		if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+			continue
+		}
+
+		repoName := entry.Name()
+
+		cmd := exec.CommandContext(ctx, "bash", "-c", `
+git diff --src-prefix=a/`+repoName+`/ --dst-prefix=b/`+repoName+`/ HEAD
+git ls-files --others --exclude-standard | while read -r file; do
+  git diff --no-index --src-prefix=a/`+repoName+`/ --dst-prefix=b/`+repoName+`/ /dev/null "$file"
+done
+		`)
 		cmd.Dir = repoPath
-		output, _ = cmd.CombinedOutput()
+		cmd.Stdout = writer
+		cmd.Stderr = writer
+		_ = cmd.Run()
 	}
-	
-	if len(output) == 0 {
-		return "No changes"
-	}
-	
-	return strings.TrimSpace(string(output))
 }
