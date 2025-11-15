@@ -3,18 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
-	"strconv"
-	"time"
 )
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
-	randomPort := strconv.Itoa(rand.Intn(65535-49152) + 49152)
-
-	port := flag.String("p", randomPort, "Port to listen on")
+	port := flag.String("p", "3844", "Port to listen on")
 	workspaceDir := flag.String("C", ".", "Directory to scan for git repositories")
 	flag.Parse()
 

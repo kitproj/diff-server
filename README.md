@@ -8,7 +8,7 @@ A tiny Go program that shows git diffs in the current directory and all git repo
 # Build
 go build -o diffs-cli .
 
-# Run (default random port, current directory)
+# Run (default port 3844, current directory)
 ./diffs-cli
 
 # Run on custom port
@@ -18,4 +18,4 @@ go build -o diffs-cli .
 ./diffs-cli -C /path/to/workspace
 ```
 
-Then open the URL shown in the output (e.g., http://localhost:52341) in a browser to view the diffs.
+Then open http://localhost:3844 (or your custom port) in a browser to view the diffs.
