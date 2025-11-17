@@ -82,7 +82,27 @@ func serveDiffsText(w http.ResponseWriter, r *http.Request) {
 		}
 
 		cmd := exec.CommandContext(ctx, "bash", "-c", `
-git diff --src-prefix=a/`+repoName+`/ --dst-prefix=b/`+repoName+`/ HEAD
+# Determine the default branch (main or master)
+DEFAULT_BRANCH=""
+if git rev-parse --verify main >/dev/null 2>&1; then
+  DEFAULT_BRANCH="main"
+elif git rev-parse --verify master >/dev/null 2>&1; then
+  DEFAULT_BRANCH="master"
+fi
+
+# Get current branch
+CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+
+# Determine what to diff against
+if [ -n "$DEFAULT_BRANCH" ] && [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "$DEFAULT_BRANCH" ]; then
+  # On a feature branch: show all changes from branch point
+  git diff --src-prefix=a/`+repoName+`/ --dst-prefix=b/`+repoName+`/ ${DEFAULT_BRANCH}...HEAD
+else
+  # On default branch or detached HEAD: show only uncommitted changes
+  git diff --src-prefix=a/`+repoName+`/ --dst-prefix=b/`+repoName+`/ HEAD
+fi
+
+# Always show untracked files
 git ls-files --others --exclude-standard | while IFS= read -r file; do
   if [ -n "$file" ]; then
     git diff --no-index --src-prefix=a/`+repoName+`/ --dst-prefix=b/`+repoName+`/ /dev/null "$file" 2>/dev/null || true

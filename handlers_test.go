@@ -283,3 +283,165 @@ func TestServeDiffsText_NonGitDirectory(t *testing.T) {
 	// Should return empty response since there are no git repos
 	// This tests that the handler completes successfully even with no repos
 }
+
+func TestServeDiffsText_FeatureBranchShowsAllChanges(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	setupTestGitRepo(t, tmpDir)
+
+	// Create initial commit on master
+	testFile := filepath.Join(tmpDir, "initial.txt")
+	if err := os.WriteFile(testFile, []byte("initial\n"), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	cmd := exec.Command("git", "add", "initial.txt")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to git add: %v", err)
+	}
+
+	cmd = exec.Command("git", "commit", "-m", "initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	// Create feature branch
+	cmd = exec.Command("git", "checkout", "-b", "feature")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to create feature branch: %v", err)
+	}
+
+	// Add committed change on feature branch
+	committedFile := filepath.Join(tmpDir, "committed.txt")
+	if err := os.WriteFile(committedFile, []byte("committed on feature\n"), 0644); err != nil {
+		t.Fatalf("failed to write committed file: %v", err)
+	}
+
+	cmd = exec.Command("git", "add", "committed.txt")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to git add: %v", err)
+	}
+
+	cmd = exec.Command("git", "commit", "-m", "committed change on feature")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	// Add uncommitted change on feature branch
+	uncommittedFile := filepath.Join(tmpDir, "uncommitted.txt")
+	if err := os.WriteFile(uncommittedFile, []byte("uncommitted on feature\n"), 0644); err != nil {
+		t.Fatalf("failed to write uncommitted file: %v", err)
+	}
+
+	oldDir, _ := os.Getwd()
+	defer os.Chdir(oldDir)
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept", "text/x-diff")
+
+	w := httptest.NewRecorder()
+	diffsHandler(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	body := w.Body.String()
+
+	// Should show both committed and uncommitted changes
+	if !strings.Contains(body, "committed.txt") {
+		t.Errorf("expected committed.txt in diff (committed change from branch), got: %s", body)
+	}
+	if !strings.Contains(body, "uncommitted.txt") {
+		t.Errorf("expected uncommitted.txt in diff (uncommitted change), got: %s", body)
+	}
+}
+
+func TestServeDiffsText_MasterBranchShowsOnlyUncommitted(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	setupTestGitRepo(t, tmpDir)
+
+	// Create initial commit on master
+	testFile := filepath.Join(tmpDir, "initial.txt")
+	if err := os.WriteFile(testFile, []byte("initial\n"), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	cmd := exec.Command("git", "add", "initial.txt")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to git add: %v", err)
+	}
+
+	cmd = exec.Command("git", "commit", "-m", "initial commit")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	// Add another committed change on master
+	committedFile := filepath.Join(tmpDir, "committed.txt")
+	if err := os.WriteFile(committedFile, []byte("committed on master\n"), 0644); err != nil {
+		t.Fatalf("failed to write committed file: %v", err)
+	}
+
+	cmd = exec.Command("git", "add", "committed.txt")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to git add: %v", err)
+	}
+
+	cmd = exec.Command("git", "commit", "-m", "committed change on master")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("failed to commit: %v", err)
+	}
+
+	// Add uncommitted change on master
+	uncommittedFile := filepath.Join(tmpDir, "uncommitted.txt")
+	if err := os.WriteFile(uncommittedFile, []byte("uncommitted on master\n"), 0644); err != nil {
+		t.Fatalf("failed to write uncommitted file: %v", err)
+	}
+
+	oldDir, _ := os.Getwd()
+	defer os.Chdir(oldDir)
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept", "text/x-diff")
+
+	w := httptest.NewRecorder()
+	diffsHandler(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	body := w.Body.String()
+
+	// Should NOT show committed changes (committed.txt was committed, so should not appear in diff)
+	// Look for "a/./committed.txt" or "b/./committed.txt" in diff headers
+	if strings.Contains(body, "a/./committed.txt") || strings.Contains(body, "b/./committed.txt") {
+		t.Errorf("should not show committed.txt changes on master branch since it was already committed, got: %s", body)
+	}
+	// Should show uncommitted changes
+	if !strings.Contains(body, "uncommitted.txt") {
+		t.Errorf("expected uncommitted.txt in diff (uncommitted change), got: %s", body)
+	}
+}
+
