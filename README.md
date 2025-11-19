@@ -22,19 +22,19 @@ Download the binary for your platform from the [release page](https://github.com
 
 **For Linux (amd64):**
 ```bash
-sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.2/diff-server_v0.0.2_linux_amd64
+sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.3/diff-server_v0.0.3_linux_amd64
 sudo chmod +x /usr/local/bin/diff-server
 ```
 
 **For Linux (arm64):**
 ```bash
-sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.2/diff-server_v0.0.2_linux_arm64
+sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.3/diff-server_v0.0.3_linux_arm64
 sudo chmod +x /usr/local/bin/diff-server
 ```
 
 **For Linux (386):**
 ```bash
-sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.2/diff-server_v0.0.2_linux_386
+sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.3/diff-server_v0.0.3_linux_386
 sudo chmod +x /usr/local/bin/diff-server
 ```
 
@@ -42,13 +42,13 @@ sudo chmod +x /usr/local/bin/diff-server
 
 **For macOS (Apple Silicon/arm64):**
 ```bash
-sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.2/diff-server_v0.0.2_darwin_arm64
+sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.3/diff-server_v0.0.3_darwin_arm64
 sudo chmod +x /usr/local/bin/diff-server
 ```
 
 **For macOS (Intel/amd64):**
 ```bash
-sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.2/diff-server_v0.0.2_darwin_amd64
+sudo curl -fsL -o /usr/local/bin/diff-server https://github.com/kitproj/diff-server/releases/download/v0.0.3/diff-server_v0.0.3_darwin_amd64
 sudo chmod +x /usr/local/bin/diff-server
 ```
 
