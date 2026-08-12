@@ -62,14 +62,33 @@ func repoDisplayName(repoPath string) string {
 }
 
 func resolveRepoPath(name string) (string, error) {
-	repos, err := findGitRepos(".")
+	cwd, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
-	for _, repoPath := range repos {
-		if repoDisplayName(repoPath) == name {
-			return repoPath, nil
+
+	if name == filepath.Base(cwd) {
+		if _, err := os.Stat(filepath.Join(".", ".git")); err == nil {
+			return ".", nil
 		}
 	}
-	return "", fmt.Errorf("unknown repo: %s", name)
+
+	candidate := filepath.Clean(name)
+	if candidate == ".." || strings.HasPrefix(candidate, "../") {
+		return "", fmt.Errorf("unknown repo: %s", name)
+	}
+
+	if _, err := os.Stat(filepath.Join(candidate, ".git")); err != nil {
+		return "", fmt.Errorf("unknown repo: %s", name)
+	}
+
+	if pathDepth(candidate) > maxRepoDepth {
+		return "", fmt.Errorf("unknown repo: %s", name)
+	}
+
+	if repoDisplayName(candidate) != name {
+		return "", fmt.Errorf("unknown repo: %s", name)
+	}
+
+	return candidate, nil
 }

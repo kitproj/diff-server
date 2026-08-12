@@ -301,54 +301,58 @@
 
                     await Promise.all(
                         repos.map(async (repo) => {
-                            const response = await fetch(
-                                "/diff?repo=" + encodeURIComponent(repo),
-                                { headers: { Accept: "text/x-diff" } },
-                            );
-                            if (!response.ok) {
-                                throw new Error(
-                                    "Failed to load diff for " + repo,
+                            try {
+                                const response = await fetch(
+                                    "/diff?repo=" + encodeURIComponent(repo),
+                                    { headers: { Accept: "text/x-diff" } },
                                 );
-                            }
 
-                            const data = await response.text();
-                            completed++;
-                            message.textContent =
-                                "Loading diffs... (" +
-                                completed +
-                                "/" +
-                                repos.length +
-                                ")";
+                                if (!response.ok) {
+                                    return;
+                                }
 
-                            if (!data.trim()) {
+                                const data = await response.text();
+
+                                if (!data.trim()) {
+                                    removeRepoSection(repo);
+                                    return;
+                                }
+
+                                changedRepos++;
+
+                                const existing = repoSections.get(repo);
+                                if (existing && existing.diffText === data) {
+                                    return;
+                                }
+
                                 removeRepoSection(repo);
+
+                                const { section, container } =
+                                    renderRepoSection(repo);
+                                diffs.appendChild(section);
+
+                                new Diff2HtmlUI(container, data).draw();
+                                await applyViewedState(
+                                    repo,
+                                    container,
+                                    data,
+                                    viewedState,
+                                );
+                                repoSections.set(repo, {
+                                    diffText: data,
+                                    section,
+                                });
+                            } catch {
                                 return;
+                            } finally {
+                                completed++;
+                                message.textContent =
+                                    "Loading diffs... (" +
+                                    completed +
+                                    "/" +
+                                    repos.length +
+                                    ")";
                             }
-
-                            changedRepos++;
-
-                            const existing = repoSections.get(repo);
-                            if (existing && existing.diffText === data) {
-                                return;
-                            }
-
-                            removeRepoSection(repo);
-
-                            const { section, container } =
-                                renderRepoSection(repo);
-                            diffs.appendChild(section);
-
-                            new Diff2HtmlUI(container, data).draw();
-                            await applyViewedState(
-                                repo,
-                                container,
-                                data,
-                                viewedState,
-                            );
-                            repoSections.set(repo, {
-                                diffText: data,
-                                section,
-                            });
                         }),
                     );
 

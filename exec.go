@@ -42,8 +42,9 @@ func runCommand(ctx context.Context, dir string, stdout, stderr io.Writer, name 
 	return nil
 }
 
-func gitDiffScript(repoName string) string {
+func gitDiffScript() string {
 	return `
+REPO_NAME="$1"
 DEFAULT_BRANCH=""
 if git rev-parse --verify main >/dev/null 2>&1; then
   DEFAULT_BRANCH="main"
@@ -54,14 +55,14 @@ fi
 CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
 
 if [ -n "$DEFAULT_BRANCH" ] && [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "$DEFAULT_BRANCH" ]; then
-  git diff --src-prefix=a/` + repoName + `/ --dst-prefix=b/` + repoName + `/ ${DEFAULT_BRANCH}...HEAD
+  git diff --src-prefix="a/${REPO_NAME}/" --dst-prefix="b/${REPO_NAME}/" ${DEFAULT_BRANCH}...HEAD
 else
-  git diff --src-prefix=a/` + repoName + `/ --dst-prefix=b/` + repoName + `/ HEAD
+  git diff --src-prefix="a/${REPO_NAME}/" --dst-prefix="b/${REPO_NAME}/" HEAD
 fi
 
 git ls-files --others --exclude-standard | while IFS= read -r file; do
   if [ -n "$file" ]; then
-    git diff --no-index --src-prefix=a/` + repoName + `/ --dst-prefix=b/` + repoName + `/ /dev/null "$file" 2>/dev/null || true
+    git diff --no-index --src-prefix="a/${REPO_NAME}/" --dst-prefix="b/${REPO_NAME}/" /dev/null "$file" 2>/dev/null || true
   fi
 done
 `

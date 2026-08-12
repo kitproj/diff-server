@@ -69,14 +69,15 @@ func serveRepoDiff(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/x-diff; charset=utf-8")
-	if err := writeRepoDiff(r.Context(), w, repoPath); err != nil {
+	writer := &maxSizeWriter{Writer: w, maxSize: 5 * 1024 * 1024}
+	if err := writeRepoDiff(r.Context(), writer, repoPath); err != nil {
 		log.Printf("Failed to write diff for %s: %v", repoPath, err)
 	}
 }
 
 func writeRepoDiff(ctx context.Context, w io.Writer, repoPath string) error {
 	repoName := repoDisplayName(repoPath)
-	return runCommand(ctx, repoPath, w, io.Discard, "bash", "-c", gitDiffScript(), "--", repoName)
+	return runCommand(ctx, repoPath, w, io.Discard, "bash", "-c", gitDiffScript(), "bash", repoName)
 }
 
 func serveDiffsText(w http.ResponseWriter, r *http.Request) {
