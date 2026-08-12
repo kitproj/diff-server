@@ -76,7 +76,7 @@ func serveRepoDiff(w http.ResponseWriter, r *http.Request) {
 
 func writeRepoDiff(ctx context.Context, w io.Writer, repoPath string) error {
 	repoName := repoDisplayName(repoPath)
-	return runCommand(ctx, repoPath, w, w, "bash", "-c", gitDiffScript(repoName))
+	return runCommand(ctx, repoPath, w, io.Discard, "bash", "-c", gitDiffScript(), "--", repoName)
 }
 
 func serveDiffsText(w http.ResponseWriter, r *http.Request) {
