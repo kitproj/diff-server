@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -13,44 +13,170 @@
         />
         <link
             rel="stylesheet"
-            type="text/css"
-            href="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/css/diff2html.min.css"
-            integrity="sha384-iBvSlI3tNrrSIy7s6mvLg+5B2Z/QXbR4L0Pzg1nRf8zkXrz5JF316MLm2igMIpi2"
+            href="https://cdn.jsdelivr.net/npm/diff2html@3.4.56/bundles/css/diff2html.min.css"
+            integrity="sha384-PdRCG/+r1waybtXfuDB9Kmv2h7AGoN6WaTZ5OF+ctPeR9BGne0FaKRQnUeGV4nDL"
             crossorigin="anonymous"
         />
+        <style>
+            body {
+                margin: 0 auto;
+                max-width: 1200px;
+                padding: 1.5rem;
+                background: #f6f8fa;
+                color: #1f2328;
+                font: 14px/1.5 system-ui, sans-serif;
+            }
+
+            h1 {
+                margin: 0 0 1rem;
+                font-size: 1.25rem;
+                font-weight: 600;
+            }
+
+            #message {
+                margin-bottom: 1rem;
+                color: #656d76;
+            }
+
+            #message.error {
+                color: #cf222e;
+            }
+
+            #diffs {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .repo {
+                overflow: hidden;
+                border: 1px solid #d0d7de;
+                border-radius: 8px;
+                background: #fff;
+            }
+
+            .repo h2 {
+                margin: 0;
+                padding: 0.75rem 1rem;
+                border-bottom: 1px solid #d0d7de;
+                background: #f6f8fa;
+                font-size: 0.875rem;
+                font-weight: 600;
+                word-break: break-all;
+            }
+
+            .repo .d2h-wrapper {
+                margin: 0;
+            }
+
+            .repo .d2h-file-wrapper {
+                border: 0;
+                border-radius: 0;
+                margin: 0;
+            }
+
+            .repo .d2h-file-header {
+                border-top: 1px solid #d0d7de;
+            }
+
+            .repo .d2h-file-wrapper:first-child .d2h-file-header {
+                border-top: 0;
+            }
+
+            .d2h-code-line-ctn {
+                font-family: ui-monospace, monospace;
+                font-size: 12px;
+                word-break: break-word;
+            }
+        </style>
     </head>
     <body>
+        <h1>Git Diffs</h1>
         <div id="message">Loading diffs...</div>
         <div id="diffs"></div>
 
         <script
-            type="text/javascript"
-            src="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/js/diff2html-ui.min.js"
-            integrity="sha384-99bAn+VpNpavq3FarkwuSuDPDHMeakTiNqxxz3ezwdGUr414srIXY3YmXjaAkYne"
+            src="https://cdn.jsdelivr.net/npm/diff2html@3.4.56/bundles/js/diff2html-ui.min.js"
+            integrity="sha384-NRd5i/CwvZ20mJEQt3yaDU1LeU+tu0bqyVYojXi8d7Lf1B0/TIs2K3FTvlf8aO7p"
             crossorigin="anonymous"
         ></script>
         <script>
             const message = document.getElementById("message");
             const diffs = document.getElementById("diffs");
-            let currentDiff = "";
 
             async function fetchAndRender() {
-                try {
-                    const response = await fetch("/diffs", {
-                        headers: { Accept: "text/x-diff" },
-                    });
-                    const data = await response.text();
+                message.className = "";
+                message.textContent = "Loading diffs...";
 
-                    if (data !== currentDiff) {
-                        currentDiff = data;
-                        await new Diff2HtmlUI(diffs, currentDiff).draw();
-                        message.innerHTML = "";
+                try {
+                    const reposResponse = await fetch("/repos");
+                    if (!reposResponse.ok) {
+                        throw new Error("Failed to list repositories");
                     }
+
+                    const repos = await reposResponse.json();
+                    diffs.innerHTML = "";
+
+                    if (repos.length === 0) {
+                        message.textContent = "No git repositories found.";
+                        return;
+                    }
+
+                    let completed = 0;
+                    let changedRepos = 0;
+
+                    await Promise.all(
+                        repos.map(async (repo) => {
+                            const response = await fetch(
+                                "/diff?repo=" + encodeURIComponent(repo),
+                                { headers: { Accept: "text/x-diff" } },
+                            );
+                            if (!response.ok) {
+                                throw new Error(
+                                    "Failed to load diff for " + repo,
+                                );
+                            }
+
+                            const data = await response.text();
+                            completed++;
+                            message.textContent =
+                                "Loading diffs... (" +
+                                completed +
+                                "/" +
+                                repos.length +
+                                ")";
+
+                            if (!data.trim()) {
+                                return;
+                            }
+
+                            changedRepos++;
+
+                            const section = document.createElement("section");
+                            section.className = "repo";
+
+                            const title = document.createElement("h2");
+                            title.textContent = repo;
+                            section.appendChild(title);
+
+                            const container = document.createElement("div");
+                            section.appendChild(container);
+                            diffs.appendChild(section);
+
+                            new Diff2HtmlUI(container, data).draw();
+                        }),
+                    );
+
+                    if (changedRepos === 0) {
+                        message.textContent = "No uncommitted changes.";
+                        return;
+                    }
+
+                    message.textContent = "";
                 } catch (error) {
-                    message.innerHTML =
-                        "<div>Error fetching diffs: " +
-                        error.message +
-                        "</div>";
+                    message.className = "error";
+                    message.textContent =
+                        "Error fetching diffs: " + error.message;
                 }
             }
 
