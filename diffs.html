@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -13,44 +13,364 @@
         />
         <link
             rel="stylesheet"
-            type="text/css"
-            href="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/css/diff2html.min.css"
-            integrity="sha384-iBvSlI3tNrrSIy7s6mvLg+5B2Z/QXbR4L0Pzg1nRf8zkXrz5JF316MLm2igMIpi2"
+            href="https://cdn.jsdelivr.net/npm/diff2html@3.4.56/bundles/css/diff2html.min.css"
+            integrity="sha384-PdRCG/+r1waybtXfuDB9Kmv2h7AGoN6WaTZ5OF+ctPeR9BGne0FaKRQnUeGV4nDL"
             crossorigin="anonymous"
         />
+        <style>
+            :root {
+                --bg: #f6f8fa;
+                --surface: #fff;
+                --border: #d0d7de;
+                --text: #1f2328;
+                --muted: #656d76;
+                --danger: #cf222e;
+                --radius: 8px;
+                --space: 1rem;
+                --space-sm: 0.75rem;
+                --max-width: 1200px;
+                --font: system-ui, sans-serif;
+                --mono: ui-monospace, monospace;
+                --font-size: 14px;
+                --font-size-sm: 0.875rem;
+                --font-size-code: 12px;
+            }
+
+            /* app chrome */
+            body {
+                margin: 0 auto;
+                max-width: var(--max-width);
+                padding: 1.5rem;
+                background: var(--bg);
+                color: var(--text);
+                font: var(--font-size) / 1.5 var(--font);
+            }
+
+            h1 {
+                margin: 0 0 var(--space);
+                font-size: 1.25rem;
+                font-weight: 600;
+            }
+
+            #message {
+                margin-bottom: var(--space);
+                color: var(--muted);
+            }
+
+            #message.error {
+                color: var(--danger);
+            }
+
+            #diffs {
+                display: flex;
+                flex-direction: column;
+                gap: var(--space);
+            }
+
+            /* card */
+            .repo {
+                overflow: hidden;
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                background: var(--surface);
+            }
+
+            .repo h2 {
+                margin: 0;
+                padding: var(--space-sm) var(--space);
+                border-bottom: 1px solid var(--border);
+                background: var(--bg);
+                font-size: var(--font-size-sm);
+                font-weight: 600;
+                word-break: break-all;
+            }
+
+            /* diff2html overrides */
+            .repo .d2h-wrapper {
+                margin: 0;
+            }
+
+            .repo .d2h-file-wrapper {
+                border: 0;
+                border-radius: 0;
+                margin: 0;
+            }
+
+            .repo .d2h-file-header {
+                border-top: 1px solid var(--border);
+            }
+
+            .repo .d2h-file-wrapper:first-child .d2h-file-header {
+                border-top: 0;
+            }
+
+            .repo .d2h-code-line-ctn {
+                font-family: var(--mono);
+                font-size: var(--font-size-code);
+                word-break: break-word;
+            }
+        </style>
     </head>
     <body>
+        <h1>Git Diffs</h1>
         <div id="message">Loading diffs...</div>
         <div id="diffs"></div>
 
         <script
-            type="text/javascript"
-            src="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/js/diff2html-ui.min.js"
-            integrity="sha384-99bAn+VpNpavq3FarkwuSuDPDHMeakTiNqxxz3ezwdGUr414srIXY3YmXjaAkYne"
+            src="https://cdn.jsdelivr.net/npm/diff2html@3.4.56/bundles/js/diff2html-ui.min.js"
+            integrity="sha384-NRd5i/CwvZ20mJEQt3yaDU1LeU+tu0bqyVYojXi8d7Lf1B0/TIs2K3FTvlf8aO7p"
             crossorigin="anonymous"
         ></script>
         <script>
             const message = document.getElementById("message");
             const diffs = document.getElementById("diffs");
-            let currentDiff = "";
+            const VIEWED_KEY = "diff-server-viewed";
+            const repoSections = new Map();
+
+            const viewedStore = {
+                load() {
+                    try {
+                        return JSON.parse(
+                            localStorage.getItem(VIEWED_KEY) ?? "{}",
+                        );
+                    } catch {
+                        return {};
+                    }
+                },
+                save(state) {
+                    localStorage.setItem(VIEWED_KEY, JSON.stringify(state));
+                },
+            };
+
+            async function hashText(text) {
+                const buf = await crypto.subtle.digest(
+                    "SHA-256",
+                    new TextEncoder().encode(text),
+                );
+                return Array.from(new Uint8Array(buf), (b) =>
+                    b.toString(16).padStart(2, "0"),
+                ).join("");
+            }
+
+            function parseFileDiffs(diffText) {
+                const files = new Map();
+                for (const chunk of diffText.split(/\n(?=diff --git )/)) {
+                    if (!chunk.startsWith("diff --git ")) {
+                        continue;
+                    }
+                    const match = chunk.match(
+                        /^diff --git a\/(.+?) b\/(.+)$/m,
+                    );
+                    if (!match) {
+                        continue;
+                    }
+                    files.set(match[2], chunk);
+                }
+                return files;
+            }
+
+            function fileKey(repo, path) {
+                return repo + ":" + path;
+            }
+
+            function setFileViewed(wrapper, viewed) {
+                const checkbox = wrapper.querySelector('input[name="viewed"]');
+                const collapse = wrapper.querySelector(".d2h-file-collapse");
+                const contents = wrapper.querySelector(
+                    ".d2h-file-diff, .d2h-files-diff",
+                );
+                if (!checkbox || !collapse || !contents) {
+                    return;
+                }
+                checkbox.checked = viewed;
+                collapse.classList.toggle("d2h-selected", viewed);
+                contents.classList.toggle("d2h-d-none", viewed);
+            }
+
+            async function applyViewedState(repo, container, diffText, state) {
+                const fileDiffs = parseFileDiffs(diffText);
+                const entries = [...fileDiffs.entries()];
+                const hashes = new Map(
+                    await Promise.all(
+                        entries.map(async ([path, chunk]) => [
+                            path,
+                            await hashText(chunk),
+                        ]),
+                    ),
+                );
+                const wrappers = container.querySelectorAll(".d2h-file-wrapper");
+
+                wrappers.forEach((wrapper, index) => {
+                    const path = entries[index]?.[0];
+                    if (!path) {
+                        return;
+                    }
+
+                    const hash = hashes.get(path);
+                    const key = fileKey(repo, path);
+                    const checkbox = wrapper.querySelector('input[name="viewed"]');
+                    if (!checkbox) {
+                        return;
+                    }
+
+                    checkbox.addEventListener("change", () => {
+                        if (checkbox.checked && hash) {
+                            state[key] = hash;
+                        } else {
+                            delete state[key];
+                        }
+                        viewedStore.save(state);
+                    });
+
+                    if (hash && state[key] === hash) {
+                        setFileViewed(wrapper, true);
+                    }
+                });
+            }
+
+            function pruneViewedState(state, sections) {
+                const validKeys = new Set();
+                for (const [repo, entry] of sections) {
+                    for (const path of parseFileDiffs(entry.diffText).keys()) {
+                        validKeys.add(fileKey(repo, path));
+                    }
+                }
+
+                for (const key of Object.keys(state)) {
+                    if (!validKeys.has(key)) {
+                        delete state[key];
+                    }
+                }
+            }
+
+            function removeRepoSection(repo) {
+                const entry = repoSections.get(repo);
+                if (!entry) {
+                    return;
+                }
+                entry.section.remove();
+                repoSections.delete(repo);
+            }
+
+            function renderRepoSection(repo) {
+                const section = document.createElement("section");
+                section.className = "repo";
+
+                const title = document.createElement("h2");
+                title.textContent = repo;
+                section.appendChild(title);
+
+                const container = document.createElement("div");
+                container.className = "repo-diff";
+                section.appendChild(container);
+
+                return { section, container };
+            }
 
             async function fetchAndRender() {
-                try {
-                    const response = await fetch("/diffs", {
-                        headers: { Accept: "text/x-diff" },
-                    });
-                    const data = await response.text();
+                message.className = "";
+                message.textContent = "Loading diffs...";
 
-                    if (data !== currentDiff) {
-                        currentDiff = data;
-                        await new Diff2HtmlUI(diffs, currentDiff).draw();
-                        message.innerHTML = "";
+                try {
+                    const reposResponse = await fetch("/repos");
+                    if (!reposResponse.ok) {
+                        throw new Error("Failed to list repositories");
                     }
+
+                    const repos = await reposResponse.json();
+                    const viewedState = viewedStore.load();
+                    const activeRepos = new Set(repos);
+
+                    for (const repo of repoSections.keys()) {
+                        if (!activeRepos.has(repo)) {
+                            removeRepoSection(repo);
+                        }
+                    }
+
+                    if (repos.length === 0) {
+                        diffs.innerHTML = "";
+                        repoSections.clear();
+                        pruneViewedState(viewedState, repoSections);
+                        viewedStore.save(viewedState);
+                        message.textContent = "No git repositories found.";
+                        return;
+                    }
+
+                    let completed = 0;
+                    let changedRepos = 0;
+
+                    await Promise.all(
+                        repos.map(async (repo) => {
+                            try {
+                                const response = await fetch(
+                                    "/diff?repo=" + encodeURIComponent(repo),
+                                    { headers: { Accept: "text/x-diff" } },
+                                );
+
+                                if (!response.ok) {
+                                    return;
+                                }
+
+                                const data = await response.text();
+
+                                if (!data.trim()) {
+                                    removeRepoSection(repo);
+                                    return;
+                                }
+
+                                changedRepos++;
+
+                                const existing = repoSections.get(repo);
+                                if (existing && existing.diffText === data) {
+                                    return;
+                                }
+
+                                removeRepoSection(repo);
+
+                                const { section, container } =
+                                    renderRepoSection(repo);
+                                diffs.appendChild(section);
+
+                                new Diff2HtmlUI(container, data).draw();
+                                await applyViewedState(
+                                    repo,
+                                    container,
+                                    data,
+                                    viewedState,
+                                );
+                                repoSections.set(repo, {
+                                    diffText: data,
+                                    section,
+                                });
+                            } catch {
+                                return;
+                            } finally {
+                                completed++;
+                                message.textContent =
+                                    "Loading diffs... (" +
+                                    completed +
+                                    "/" +
+                                    repos.length +
+                                    ")";
+                            }
+                        }),
+                    );
+
+                    pruneViewedState(viewedState, repoSections);
+                    viewedStore.save(viewedState);
+
+                    if (changedRepos === 0) {
+                        diffs.innerHTML = "";
+                        repoSections.clear();
+                        message.textContent = "No uncommitted changes.";
+                        return;
+                    }
+
+                    message.textContent = "";
                 } catch (error) {
-                    message.innerHTML =
-                        "<div>Error fetching diffs: " +
-                        error.message +
-                        "</div>";
+                    message.className = "error";
+                    message.textContent =
+                        "Error fetching diffs: " + error.message;
                 }
             }
 
