@@ -6,27 +6,14 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
-	"runtime"
-)
 
-func openBrowser(url string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		cmd = exec.Command("xdg-open", url)
-	}
-	return cmd.Start()
-}
+	"github.com/pkg/browser"
+)
 
 func main() {
 	port := flag.String("p", "3844", "Port to listen on")
 	workspaceDir := flag.String("C", ".", "Directory to scan for git repositories")
-	noOpen := flag.Bool("no-open", false, "Disable auto-opening browser")
+	noBrowser := flag.Bool("B", false, "Disable auto-opening browser")
 	flag.Parse()
 
 	if err := os.Chdir(*workspaceDir); err != nil {
@@ -45,8 +32,8 @@ func main() {
 	url := fmt.Sprintf("http://localhost:%s", *port)
 	fmt.Printf("Starting server on %s\n", url)
 
-	if !*noOpen {
-		if err := openBrowser(url); err != nil {
+	if !*noBrowser {
+		if err := browser.OpenURL(url); err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to open browser: %v\n", err)
 		}
 	}
